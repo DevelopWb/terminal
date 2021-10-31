@@ -21,7 +21,7 @@ import com.amap.api.location.AMapLocationQualityReport;
  * @UpdateDate: 2021/10/26 21:14
  */
 public class AmapLocationUtil {
-
+    private OnLocSuccess onLocSuccess;
     private AMapLocationClient locationClient = null;
     private AMapLocationClientOption locationOption = null;
     private static final String NOTIFICATION_CHANNEL_NAME = "BackgroundLocation";
@@ -100,6 +100,10 @@ public class AmapLocationUtil {
                 StringBuffer sb = new StringBuffer();
                 //errCode等于0代表定位成功，其他的为定位失败，具体的可以参照官网定位错误码说明
                 if (location.getErrorCode() == 0) {
+                    if (onLocSuccess != null) {
+                        onLocSuccess.locSuccess(location.getLatitude(),location.getLongitude());
+                    }
+                    stopLocation();
                     sb.append("定位成功" + "\n");
                     sb.append("定位类型: " + location.getLocationType() + "\n");
                     sb.append("经    度    : " + location.getLongitude() + "\n");
@@ -140,7 +144,7 @@ public class AmapLocationUtil {
 
                 //解析定位结果，
                 String result = sb.toString();
-                Log.d(Utils.LOG_TAG,result);
+                Log.d(Utils.LOG_TAG, result);
             }
         }
     };
@@ -180,7 +184,8 @@ public class AmapLocationUtil {
      * @author hongming.wang
      * @since 2.8.0
      */
-    public void startLocation() {
+    public void startLocation(OnLocSuccess onLocSuccess) {
+        this.onLocSuccess = onLocSuccess;
         if (locationClient == null) {
             initLocation();
         }
@@ -260,5 +265,11 @@ public class AmapLocationUtil {
             return builder.getNotification();
         }
         return notification;
+    }
+
+
+    public interface OnLocSuccess {
+
+        void locSuccess(double lat, double lng);
     }
 }
