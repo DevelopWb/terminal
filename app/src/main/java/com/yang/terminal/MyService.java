@@ -1,6 +1,7 @@
 package com.yang.terminal;
 
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
@@ -24,6 +25,8 @@ import com.yang.amapmoudle.Utils;
 
 public class MyService extends Service {
     public static final int NOTIFICATION_START_FLAG = 2;
+    public static final String ACTION_START = "action_start";
+    public static final String ACTION_STOP = "action_stop";
 
     ContentResolver resolver;
     private DynamicReceiver receiverSMS = new DynamicReceiver();
@@ -40,9 +43,17 @@ public class MyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        amapLocationUtil = AmapLocationUtil.getInstance(this);
-        initView();
-        startForeground(NOTIFICATION_START_FLAG, amapLocationUtil.buildNotification());
+        String action = intent.getAction();
+        if (ACTION_STOP.equals(action)) {
+            //关闭服务
+            stopForeground(true);
+            stopSelf();
+        }else {
+            amapLocationUtil = AmapLocationUtil.getInstance(this);
+            initView();
+            startForeground(NOTIFICATION_START_FLAG,
+                    amapLocationUtil.buildNotification(new Intent(ACTION_STOP).setClass(this,MyService.class)));
+        }
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -50,8 +61,8 @@ public class MyService extends Service {
         IntentFilter filterSMS = new IntentFilter(
                 "android.provider.Telephony.SMS_RECEIVED");
         registerReceiver(receiverSMS, filterSMS);
-        getContentResolver().registerContentObserver(
-                Uri.parse("content://sms"), true, Observer);
+//        getContentResolver().registerContentObserver(
+//                Uri.parse("content://sms"), true, Observer);
 
     }
 
@@ -101,7 +112,7 @@ public class MyService extends Service {
                             @Override
                             public void locSuccess(double lat, double lng) {
                                 SmsManager smsManager = SmsManager.getDefault();
-                                smsManager.sendTextMessage(num, null, lat+","+lng , null,
+                                smsManager.sendTextMessage(num, null, "#RDW,"+lat+","+lng , null,
                                         null);
                             }
                         });

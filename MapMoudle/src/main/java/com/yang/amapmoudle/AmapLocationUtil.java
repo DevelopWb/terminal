@@ -3,7 +3,9 @@ package com.yang.amapmoudle;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
 import android.util.Log;
 
@@ -57,13 +59,13 @@ public class AmapLocationUtil {
     }
 
 
-    private void startBackgroundNotice() {
-        if (null == locationClient) {
-            locationClient = new AMapLocationClient(mContext);
-        }
-        //启动后台定位
-        locationClient.enableBackgroundLocation(2001, buildNotification());
-    }
+//    private void startBackgroundNotice() {
+//        if (null == locationClient) {
+//            locationClient = new AMapLocationClient(mContext);
+//        }
+//        //启动后台定位
+//        locationClient.enableBackgroundLocation(2001, buildNotification());
+//    }
 
     /**
      * 默认的定位参数
@@ -231,10 +233,13 @@ public class AmapLocationUtil {
 
     }
 
-    public Notification buildNotification() {
+    public Notification buildNotification(Intent intent) {
 
         Notification.Builder builder = null;
         Notification notification = null;
+        // 创建PendingIntent
+        PendingIntent notifyPendingIntent = PendingIntent.getService(mContext, 1001, intent,
+                0);
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             //Android O上对Notification进行了修改，如果设置的targetSDKVersion>=26建议使用此种方式创建通知栏
             if (null == notificationManager) {
@@ -257,6 +262,7 @@ public class AmapLocationUtil {
         builder.setSmallIcon(R.drawable.ic_launcher)
                 .setContentTitle(Utils.getAppName(mContext))
                 .setContentText("正在后台运行")
+                .setContentIntent(notifyPendingIntent)
                 .setWhen(System.currentTimeMillis());
 
         if (android.os.Build.VERSION.SDK_INT >= 16) {
