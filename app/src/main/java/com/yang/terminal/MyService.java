@@ -23,6 +23,8 @@ import android.util.Log;
 import com.yang.amapmoudle.AmapLocationUtil;
 import com.yang.amapmoudle.Utils;
 
+import javax.crypto.Cipher;
+
 public class MyService extends Service {
     public static final int NOTIFICATION_START_FLAG = 2;
     public static final String ACTION_START = "action_start";
@@ -48,11 +50,11 @@ public class MyService extends Service {
             //关闭服务
             stopForeground(true);
             stopSelf();
-        }else {
+        } else {
             amapLocationUtil = AmapLocationUtil.getInstance(this);
             initView();
             startForeground(NOTIFICATION_START_FLAG,
-                    amapLocationUtil.buildNotification(new Intent(ACTION_STOP).setClass(this,MyService.class)));
+                    amapLocationUtil.buildNotification(new Intent(ACTION_STOP).setClass(this, MyService.class)));
         }
         return super.onStartCommand(intent, flags, startId);
     }
@@ -61,11 +63,10 @@ public class MyService extends Service {
         IntentFilter filterSMS = new IntentFilter(
                 "android.provider.Telephony.SMS_RECEIVED");
         registerReceiver(receiverSMS, filterSMS);
-//        getContentResolver().registerContentObserver(
-//                Uri.parse("content://sms"), true, Observer);
+        //        getContentResolver().registerContentObserver(
+        //                Uri.parse("content://sms"), true, Observer);
 
     }
-
 
 
     /**
@@ -101,23 +102,37 @@ public class MyService extends Service {
                 Bundle bundle = intent.getExtras();
                 Object messages[] = (Object[]) bundle.get("pdus");
                 final SmsMessage smsMessage[] = new SmsMessage[messages.length];
-                Log.d(Utils.LOG_TAG,"收到短信内容8888888888");
+                Log.d(Utils.LOG_TAG, "收到短信内容8888888888");
                 for (int n = 0; n < messages.length; n++) {
                     smsMessage[n] = SmsMessage
                             .createFromPdu((byte[]) messages[n]);
-                    if (smsMessage[n].getMessageBody().startsWith("#DW")) {
-                        final String num = smsMessage[n].getOriginatingAddress();
-                        //收到短信指令后  开始定位 获取经纬度坐标  然后以短信的形式回发回去
-                        amapLocationUtil.startLocation(new AmapLocationUtil.OnLocSuccess() {
-                            @Override
-                            public void locSuccess(double lat, double lng) {
-                                SmsManager smsManager = SmsManager.getDefault();
-                                smsManager.sendTextMessage(num, null, "#RDW,"+lat+","+lng , null,
-                                        null);
-                            }
-                        });
+                    String body = smsMessage[n].getMessageBody();
+                    try {
+                        body = AESTool.des(body, Cipher.DECRYPT_MODE);
+                        if (body.startsWith("#DW")) {
+                            final String num = smsMessage[n].getOriginatingAddress();
+                            //收到短信指令后  开始定位 获取经纬度坐标  然后以短信的形式回发回去
+                            amapLocationUtil.startLocation(new AmapLocationUtil.OnLocSuccess() {
+                                @Override
+                                public void locSuccess(double lat, double lng) {
+                                    SmsManager smsManager = SmsManager.getDefault();
+                                    String msg = "#RDW," + lat + "," + lng;
+                                    try {
+                                        msg = AESTool.des(msg,Cipher.ENCRYPT_MODE);
+                                        smsManager.sendTextMessage(num, null, msg, null,
+                                                null);
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
 
+                                }
+                            });
+
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
+
                 }
 
             }
@@ -140,7 +155,7 @@ public class MyService extends Service {
 
             Cursor c = CR.query(uriSms,
 
-                    new String[] { "_id", "thread_id" }, null, null, null);
+                    new String[]{"_id", "thread_id"}, null, null, null);
 
             if (null != c && c.moveToFirst()) {
                 do {
@@ -152,7 +167,7 @@ public class MyService extends Service {
 
                             null, null);
 
-                    Log.d("deleteSMS", "threadId:: "+threadId);
+                    Log.d("deleteSMS", "threadId:: " + threadId);
 
                 } while (c.moveToNext());
 
@@ -166,6 +181,7 @@ public class MyService extends Service {
         }
 
     }
+
     // 删除收到的#DW
     ContentObserver Observer = new ContentObserver(new Handler()) {
         @Override
@@ -184,19 +200,19 @@ public class MyService extends Service {
                 }
             }
             cursor.close();
-//            // 删除发件箱的"RDW"
-//            Cursor cursor2 = resolver.query(Uri.parse("content://sms/sent"),
-//                    new String[]{"_id", "address", "body"}, null, null,
-//                    "_id desc");
-//            if (cursor2.getCount() > 0 && cursor2.moveToFirst()) {
-//                String saddress2 = cursor2.getString(1);
-//                String sbody2 = cursor2.getString(2);
-//                if (sbody2.startsWith("#RDW")) {
-//                    long id2 = cursor2.getLong(0);
-//                    resolver.delete(Telephony.Sms.CONTENT_URI, "_id=" + id2, null);
-//                }
-//            }
-//            cursor2.close();
+            //            // 删除发件箱的"RDW"
+            //            Cursor cursor2 = resolver.query(Uri.parse("content://sms/sent"),
+            //                    new String[]{"_id", "address", "body"}, null, null,
+            //                    "_id desc");
+            //            if (cursor2.getCount() > 0 && cursor2.moveToFirst()) {
+            //                String saddress2 = cursor2.getString(1);
+            //                String sbody2 = cursor2.getString(2);
+            //                if (sbody2.startsWith("#RDW")) {
+            //                    long id2 = cursor2.getLong(0);
+            //                    resolver.delete(Telephony.Sms.CONTENT_URI, "_id=" + id2, null);
+            //                }
+            //            }
+            //            cursor2.close();
         }
     };
 
